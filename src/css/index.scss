@@ -1,0 +1,37 @@
+
+@font-face {
+  font-family: "InterVariable";
+  src: url(./fonts/InterVariable.ttf);
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url(./fonts/Inter.ttc);
+}
+
+body {
+  font-family: Inter, sans-serif;
+  font-feature-settings: 'liga' 1, 'calt' 1; /* fix for Chrome */
+}
+
+@supports (font-variation-settings: normal) {
+  body { font-family: InterVariable, sans-serif; }
+
+  .text-h1, h1 {
+    font-variation-settings:
+            "opsz" 32;
+    line-height: 1;
+    margin: 1rem;
+    font-size: 2rem;
+    font-weight: 500;
+  }
+
+  .text-h2, h2 {
+    font-variation-settings:
+            "opsz" 28;
+  }
+  .text-h3, h3 {
+    font-variation-settings:
+            "opsz" 24;
+  }
+}
