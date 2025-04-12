@@ -1,9 +1,10 @@
 <script setup lang="ts">
 
+import Header from "@/components/Header.vue";
 </script>
 
 <template>
-  <h1>Statistikk</h1>
+  <Header title="Statistikk" />
 </template>
 
 <style scoped lang="scss">

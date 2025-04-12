@@ -32,7 +32,7 @@ export class TraySlot  {
 
     if (this.holding.expiry.date.getTime() < Date.now()) {
       return SlotStatus.Bad;
-    } else if (this.holding.expiry.date.getTime() + 600000 < Date.now()) {
+    } else if (this.holding.expiry.date.getTime() + 1000*60*60*24*2 < Date.now()) {
       return SlotStatus.Warning;
     }
 

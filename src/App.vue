@@ -38,6 +38,7 @@ $bar-height: 4rem;
 
 .router-view {
   max-height: calc(100vh - $bar-height);
+  overflow: scroll;
 }
 
 .tabs-row {

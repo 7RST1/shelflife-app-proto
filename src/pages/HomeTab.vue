@@ -4,6 +4,7 @@ import {installedTrays} from "@/models/Tray.ts";
 import TrayGrid from "@/components/TrayGrid.vue";
 import {SlotStatus} from "@/models/TraySlot.ts";
 import {ref} from "vue";
+import Header from "@/components/Header.vue";
 
 const trays = installedTrays
 const expandedTray = ref<number | null>(null);
@@ -11,7 +12,7 @@ const expandedTray = ref<number | null>(null);
 </script>
 
 <template>
-  <h1>Kjøleskap</h1>
+  <Header title="Kjøleskap" desc="Her finner du oversikten over innholdet"/>
 <div class="column tray-list">
   <div
       v-for="(tray, i) of trays" :class="{
