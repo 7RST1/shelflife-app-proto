@@ -55,8 +55,8 @@ export const updateFromTray = (userId: string, tray: Tray) => {
 
   // Count all items in the tray
   for (const slot of tray.slots) {
-    if (slot.item) {
-      const itemId = slot.item.id;
+    if (slot.holding) {
+      const itemId = slot.holding.id;
       const currentCount = trayItemCounts.get(itemId) || 0;
       trayItemCounts.set(itemId, currentCount + 1);
     }

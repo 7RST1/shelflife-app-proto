@@ -127,15 +127,20 @@ const fetchProductInfo = async (barcode: string) => {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
+    console.log("gere")
+
     const data = await response.json() as OpenFoodFactsResponse;
     productData.value = data;
 
+    console.log("data", data)
+
     // If product found, create a new Item and select it
-    if (data.status === 1 && data.product) {
+    if (data.status == "success" && data.product) {
       const newItem = new Item(
           data.code || uid(),
           data.product.product_name || 'Unknown Product'
       );
+      console.log(data)
       selectedItem.value = newItem;
       dialogStep.value = 2; // Move to tray selection
     }
