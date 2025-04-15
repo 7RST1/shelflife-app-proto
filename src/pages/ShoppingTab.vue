@@ -8,7 +8,7 @@ const router = useRouter();
 </script>
 
 <template>
-  <Header title="Handleliste"/>
+  <Header title="Shopping Lists"/>
   <ul>
     <li>Melk</li>
     <li>Egg</li>
@@ -21,7 +21,7 @@ const router = useRouter();
     <li>Egg</li>
   </ul>
   <div class="absolute-bottom-right fab-container">
-    <q-btn fab icon="sym_r_shopping_cart" @click="router.push('/scan-item')" color="accent" />
+    <q-btn fab icon="sym_r_shopping_cart" @click="router.push('/shopping-trip')" color="accent" />
   </div>
 </template>
 

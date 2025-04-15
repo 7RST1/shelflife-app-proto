@@ -4,6 +4,7 @@ import HomeTab from "@/pages/HomeTab.vue";
 import SettingsTab from "@/pages/SettingsTab.vue";
 import ShoppingTab from "@/pages/ShoppingTab.vue";
 import StatsTab from "@/pages/StatsTab.vue";
+import ShoppingTripPage from "@/pages/ShoppingTripPage.vue";
 import ScanItemPage from "@/pages/ScanItemPage.vue";
 
 const routes = [
@@ -15,7 +16,7 @@ const routes = [
   { path: '/shopping-list', component: ShoppingTab },
   { path: '/stats', component: StatsTab },
   { path: '/settings', component: SettingsTab },
-  { path: '/scan-item', component: ScanItemPage }
+  { path: '/shopping-trip', component: ShoppingTripPage }
 ]
 
 export const router = createRouter({

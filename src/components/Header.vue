@@ -60,7 +60,7 @@ body {
 
 /* The actual header that will transform */
 .header {
-  background-color: #0078d4;
+  background-color: #63a668;
   color: white;
   padding: 20px;
   height: 150px;

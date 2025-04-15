@@ -1,4 +1,4 @@
-import {Item} from "@/models/Item.ts";
+import {StoredItem} from "@/models/StoredItem.ts";
 
 export enum SlotStatus {
   Empty,
@@ -14,10 +14,10 @@ export enum SlotType {
 
 
 export class TraySlot  {
-  holding?: Item;
+  holding?: StoredItem;
   type: SlotType;
 
-  constructor(type: SlotType, holding?: Item) {
+  constructor(type: SlotType, holding?: StoredItem) {
     this.holding = holding;
     this.type = type;
   }
