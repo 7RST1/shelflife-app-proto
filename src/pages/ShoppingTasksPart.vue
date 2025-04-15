@@ -3,28 +3,36 @@ import { storeToRefs } from "pinia";
 import { useShoppingStore } from "@/stores/ShoppingStore.ts";
 import { onMounted, ref, computed } from "vue";
 import { shoppingListsT } from "@/models/ShoppingList.ts";
-import {Item, randomItemsMap} from "@/models/Item.ts";
-import {usersM} from "../models/User.ts";
-
-
+import { Item, randomItemsMap } from "@/models/Item.ts";
+import { usersM } from "../models/User.ts";
 import ItemPlacementDialog from '@/components/ItemPlacementDialog.vue';
+import { Tray } from "@/models/Tray.ts";
+import {
+  placedItemsMap,
+  isItemFullyAdded,
+  handleItemPlacedWithTracking,
+  updateFromTray
+} from '@/utils/itemTracking'; // Import our new functions
 
 const showDialog = ref(false);
 const initialItemId = ref<string>("");
 const initialItemAmount = ref<number>(1);
 const searchTerm = ref("");
+const selectedUserId = ref<string>(""); // Track which user's tray we're adding to
 
 const handleItemPlaced = (data: any) => {
   console.log('Item placed:', data.item);
   console.log('Quantity:', data.quantity);
   console.log('Placements:', data.placements);
-  // Handle the placement in your application
+
+  // Use our new tracking function with the selected user ID
+  if (selectedUserId.value) {
+    handleItemPlacedWithTracking(data, selectedUserId.value);
+  }
 };
 
-
-
 const shoppingStore = useShoppingStore();
-const { trayAssignments } = storeToRefs(shoppingStore);
+const { trayAssignments, addedTrays } = storeToRefs(shoppingStore);
 
 // Compute relevant lists based on tray assignments
 const relevantLists = computed(() =>
@@ -32,6 +40,28 @@ const relevantLists = computed(() =>
         trayAssignments.value.some(v => v.userId === shoppingList.owner)
     )
 );
+
+const getUserTray = (userId: string): Tray => {
+  const assignment = trayAssignments.value.find(v => v.userId === userId);
+  if (!assignment) {
+    throw new Error("User does not have tray")
+  }
+  const tray = addedTrays.value.find(v => v.id == assignment.trayId);
+  if (!tray) {
+    throw new Error("User does not have tray")
+  }
+  return tray;
+}
+
+// Update tracking when a tray is scanned or synced
+const syncTrayItems = (userId: string) => {
+  try {
+    const tray = getUserTray(userId);
+    updateFromTray(userId, tray);
+  } catch (error) {
+    console.error("Could not sync tray:", error);
+  }
+}
 
 // Track items and their total amounts
 const itemsMap = ref(new Map<string, number>());
@@ -60,10 +90,16 @@ const findListingAmount = (shoppingList, itemKey) => {
   return listing?.amount ?? 0;
 };
 
-const addThisItemToTray = (itemId: string, amount: number = 1) => {
+// Computed to check if an item is fully added for a user
+const isItemComplete = (userId: string, itemId: string, requiredAmount: number) => {
+  return isItemFullyAdded(userId, itemId, requiredAmount);
+};
+
+const addThisItemToTray = (itemId: string, amount: number = 1, userId: string) => {
   if (!amount) return;
   initialItemId.value = itemId.startsWith("_") ? "" : itemId;
   initialItemAmount.value = amount;
+  selectedUserId.value = userId; // Store which user we're adding for
   showDialog.value = true;
 }
 
@@ -96,6 +132,15 @@ onMounted(() => {
       itemIndex++;
     });
   });
+
+  // Sync all user trays to initialize tracking
+  for (const trayAssignment of trayAssignments.value) {
+    try {
+      syncTrayItems(trayAssignment.userId);
+    } catch (error) {
+      console.error(`Could not sync tray for user ${trayAssignment.userId}:`, error);
+    }
+  }
 });
 </script>
 
@@ -126,11 +171,21 @@ onMounted(() => {
           <div>
             {{ usersM.get(list.owner)?.name }}
           </div>
+<!--          <q-btn flat size="sm" @click="syncTrayItems(list.owner)" icon="sync" label="Sync Tray" />-->
         </div>
         <div class="column">
-          <div v-for="(itemId, j) in itemsMap" :key="j" class="amount-cell" :class="{populated: !!amountArr[i][j]}" @click="console.log(amountArr[i][j])">
+          <div
+              v-for="(itemId, j) in itemsMap"
+              :key="j"
+              class="amount-cell"
+              :class="{
+              'populated': !!amountArr[i][j],
+              'completed': isItemComplete(list.owner, itemId[0], amountArr[i][j])
+            }"
+              @click="addThisItemToTray(itemId[0], amountArr[i][j], list.owner)"
+          >
             <div class="relative-position">
-              <div class="absolute-center" @click="()=>addThisItemToTray(itemId[0], amountArr[i][j])">
+              <div class="absolute-center">
                 {{ amountArr[i][j] || "" }}
               </div>
             </div>
@@ -209,11 +264,14 @@ onMounted(() => {
         height: 100%;
         border-radius: 0.3rem;
         text-align: center;
-
       }
 
       &.populated > div {
         background-color: rgba(207, 146, 16, 0.35);
+      }
+
+      &.completed > div {
+        background-color: rgba(76, 175, 80, 0.6) !important; /* Green color for completed items */
       }
 
       &.sum-cell {
