@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, defineProps, defineEmits } from 'vue';
-import { scan, Format } from '@tauri-apps/plugin-barcode-scanner';
+import {scan, Format, checkPermissions, requestPermissions} from '@tauri-apps/plugin-barcode-scanner';
 import { Notify } from 'quasar';
 import { Platform, platform } from '@tauri-apps/plugin-os';
 
@@ -50,6 +50,7 @@ const updateStatus = (status: ScannerStatus) => {
 const startScan = async () => {
   if (scannerStatus.value === ScannerStatus.ScanningMobile ||
       scannerStatus.value === ScannerStatus.ScanningBrowser) return;
+
 
   emit('scan-start');
 

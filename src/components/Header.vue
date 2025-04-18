@@ -10,7 +10,8 @@ defineProps<{
 <template>
   <div class="header-container">
     <div class="header">
-      <h1>{{title}}</h1>
+      <h1><span style="font-weight: 300">shelf</span>LIFE</h1>
+      <h1 class="page-title">{{title}}</h1>
       <p v-if="desc">{{desc}}</p>
     </div>
   </div>
@@ -70,25 +71,25 @@ body {
   transition: height 0.3s, padding 0.3s;
   border-radius: 0 0 20px 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
 
-.header h1 {
-  font-size: 32px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  transform-origin: bottom left;
-  transition: transform 0.3s, font-size 0.3s;
-}
+  h1.page-title {
+    font-size: 32px;
+    font-weight: 600;
+    margin: 0 !important;
+    transform-origin: bottom left;
+    transition: transform 0.3s, font-size 0.3s;
+  }
 
-.header p {
-  font-size: 16px;
-  opacity: 1;
-  transition: opacity 0.3s;
+  p {
+    font-size: 16px;
+    opacity: 1;
+    transition: opacity 0.3s;
+  }
 }
 
 /* Header states based on scroll position */
 .header-container.scrolled .header {
-  height: 80px;
+  height: 60px;
   padding: 10px 20px;
 }
 
@@ -109,7 +110,7 @@ body {
       padding: 20px;
     }
     100% {
-      height: 80px;
+      height: 60px;
       padding: 10px 20px;
     }
   }
@@ -138,18 +139,18 @@ body {
     animation: shrink-header linear forwards;
     animation-timeline: scroll(nearest);
     animation-range: 0px 70px;
-  }
 
-  .header h1 {
-    animation: shrink-title linear forwards;
-    animation-timeline: scroll(nearest);
-    animation-range: 0px 70px;
-  }
+    h1 {
+      animation: shrink-title linear forwards;
+      animation-timeline: scroll(nearest);
+      animation-range: 0px 70px;
+    }
 
-  .header p {
-    animation: fade-description linear forwards;
-    animation-timeline: scroll(nearest);
-    animation-range: 0px 50px;
+    p {
+      animation: fade-description linear forwards;
+      animation-timeline: scroll(nearest);
+      animation-range: 0px 50px;
+    }
   }
 
   /* We don't need these classes with animation-timeline */

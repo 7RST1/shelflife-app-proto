@@ -119,8 +119,8 @@ export const randomItems = [
     nutriscore_grade: "C",
     ingredients_text: "Tomatoes, sugar, vinegar, salt, spices"
   }),
-  new Item("7033330013290", "Bremykt", {
-    brands: "Tine",
+  new Item("7036110210889", "Smør", {
+    brands: "Olivero",
     nutriscore_grade: "A",
     nutriments: { fat_100g: 3.5, proteins_100g: 3.4, carbohydrates_100g: 4.7 }
   }),

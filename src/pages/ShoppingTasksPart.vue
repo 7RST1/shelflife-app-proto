@@ -153,7 +153,7 @@ onMounted(() => {
           {{ item.substring(1).toLowerCase() }}
         </div>
         <div v-else style="background-color: rgba(0,0,0,0.18); height: 100%">
-          {{ randomItemsMap.get(item)?.name }}
+          {{ randomItemsMap.get(item)?.brands }} {{ randomItemsMap.get(item)?.name }}
         </div>
       </div>
     </div>

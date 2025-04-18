@@ -16,17 +16,15 @@ export const shoppingListsT: ShoppingList[] = [
   {
     owner: "1",
     listings: [
-      { item: randomItems[0], amount: 4 },
-      { item: randomItems[4], amount: 2 },
-      { item: "Helmelk", amount: 2 }
+      { item: randomItems[2], amount: 1 },
+      { item: randomItems[0], amount: 2 },
     ]
   },
   {
     owner: "2",
     listings: [
       { item: randomItems[0], amount: 1 },
-      { item: randomItems[2], amount: 1 },
-      { item: randomItems[3], amount: 2 },
+      { item: "Kaviar", amount: 2 },
     ]
   },
   {
@@ -35,7 +33,8 @@ export const shoppingListsT: ShoppingList[] = [
       { item: randomItems[0], amount: 1 },
       { item: randomItems[2], amount: 4 },
       { item: randomItems[3], amount: 4 },
-      { item: "Helmelk", amount: 1 }
+      { item: "Helmelk", amount: 1 },
+      { item: "Smør", amount: 1 },
     ]
   },
   {

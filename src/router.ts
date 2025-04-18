@@ -6,6 +6,7 @@ import ShoppingTab from "@/pages/ShoppingTab.vue";
 import StatsTab from "@/pages/StatsTab.vue";
 import ShoppingTripPage from "@/pages/ShoppingTripPage.vue";
 import ScanItemPage from "@/pages/ScanItemPage.vue";
+import BarcodeScannerPage from "@/pages/BarcodeScannerPage.vue";
 
 const routes = [
   {
@@ -16,7 +17,8 @@ const routes = [
   { path: '/shopping-list', component: ShoppingTab },
   { path: '/stats', component: StatsTab },
   { path: '/settings', component: SettingsTab },
-  { path: '/shopping-trip', component: ShoppingTripPage }
+  { path: '/shopping-trip', component: ShoppingTripPage },
+  { path: '/scanner', component: BarcodeScannerPage}
 ]
 
 export const router = createRouter({
