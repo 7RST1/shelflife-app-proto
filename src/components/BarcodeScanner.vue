@@ -3,6 +3,7 @@ import { ref, defineProps, defineEmits } from 'vue';
 import {scan, Format, checkPermissions, requestPermissions} from '@tauri-apps/plugin-barcode-scanner';
 import { Notify } from 'quasar';
 import { Platform, platform } from '@tauri-apps/plugin-os';
+import {useScanningStore} from "@/stores/scannerStore.ts";
 
 enum ScannerStatus {
   Ready,
@@ -40,9 +41,12 @@ const scannerStatus = ref<ScannerStatus>(ScannerStatus.Ready);
 const showManualInputDialog = ref(false);
 const manualInput = ref('');
 
+const scanningStore = useScanningStore();
+
 // Expose the current status to parent components
 const updateStatus = (status: ScannerStatus) => {
   scannerStatus.value = status;
+  scanningStore.isScanning = status == ScannerStatus.ScanningMobile;
   emit('status-change', status);
 };
 
@@ -106,10 +110,6 @@ defineExpose({
 <template>
   <div>
     <!-- Loading indicator for mobile scanning -->
-    <q-inner-loading :showing="scannerStatus === ScannerStatus.ScanningMobile">
-      <q-spinner-ios size="50px" color="primary" />
-      <div class="q-mt-sm text-body1">{{ scanningPrompt }}</div>
-    </q-inner-loading>
 
     <!-- Manual input dialog for browser -->
     <q-dialog v-model="showManualInputDialog">

@@ -18,7 +18,7 @@ export interface Product {
 }
 
 export interface OpenFoodFactsResponse {
-    status: number;
+    status: "success" | string;
     product?: Product;
     status_verbose?: string;
     code?: string;

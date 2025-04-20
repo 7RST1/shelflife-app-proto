@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { useShoppingStore } from "@/stores/ShoppingStore.ts";
-import { onMounted, ref, computed } from "vue";
+import {onMounted, ref, computed, Ref} from "vue";
 import { shoppingListsT } from "@/models/ShoppingList.ts";
 import { Item, randomItemsMap } from "@/models/Item.ts";
 import { usersM } from "../models/User.ts";
@@ -12,22 +12,34 @@ import {
   isItemFullyAdded,
   handleItemPlacedWithTracking,
   updateFromTray
-} from '@/utils/itemTracking'; // Import our new functions
+} from '@/utils/itemTracking';
+import {useScanningStore} from "@/stores/scannerStore.ts";
+import {StoredItem} from "@/models/StoredItem.ts"; // Import our new functions
 
 const showDialog = ref(false);
+const itemAlias = ref<string>("");
 const initialItemId = ref<string>("");
 const initialItemAmount = ref<number>(1);
 const searchTerm = ref("");
-const selectedUserId = ref<string>(""); // Track which user's tray we're adding to
+const selectedTrayId = ref<string>(""); // Track which user's tray we're adding to
 
-const handleItemPlaced = (data: any) => {
+const scanningStore = useScanningStore();
+const { isScanning } = storeToRefs(scanningStore) as {
+  isScanning: Ref<boolean>;
+}
+
+const handleItemPlaced = (data: {
+  item: Item | null,
+  quantity: number,
+  placements: {trayId: string, slotIndex: number, item: StoredItem}[]
+}) => {
   console.log('Item placed:', data.item);
   console.log('Quantity:', data.quantity);
   console.log('Placements:', data.placements);
 
   // Use our new tracking function with the selected user ID
-  if (selectedUserId.value) {
-    handleItemPlacedWithTracking(data, selectedUserId.value);
+  if (selectedTrayId.value) {
+    handleItemPlacedWithTracking(data, selectedTrayId.value);
   }
 };
 
@@ -46,7 +58,7 @@ const getUserTray = (userId: string): Tray => {
   if (!assignment) {
     throw new Error("User does not have tray")
   }
-  const tray = addedTrays.value.find(v => v.id == assignment.trayId);
+  const tray = addedTrays.value.get(assignment.trayId);
   if (!tray) {
     throw new Error("User does not have tray")
   }
@@ -95,11 +107,17 @@ const isItemComplete = (userId: string, itemId: string, requiredAmount: number) 
   return isItemFullyAdded(userId, itemId, requiredAmount);
 };
 
-const addThisItemToTray = (itemId: string, amount: number = 1, userId: string) => {
+const addThisItemToTray = (itemId: string, amount: number = 1, trayId: string) => {
   if (!amount) return;
-  initialItemId.value = itemId.startsWith("_") ? "" : itemId;
+  console.log("ItemID", itemId);
+  if (itemId.startsWith("_")) {
+    initialItemId.value = "";
+    itemAlias.value = itemId.substring(1);
+  } else {
+    initialItemId.value = itemId
+  }
   initialItemAmount.value = amount;
-  selectedUserId.value = userId; // Store which user we're adding for
+  selectedTrayId.value = trayId; // Store which tray we're adding for
   showDialog.value = true;
 }
 
@@ -145,7 +163,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="row no-wrap">
+  <div v-show="!isScanning" class="row no-wrap q-ma-sm">
     <!-- Aggregated item list -->
     <div class="item-list">
       <div v-for="[item, _] of itemsMap" :key="item" class="item-row">
@@ -180,9 +198,9 @@ onMounted(() => {
               class="amount-cell"
               :class="{
               'populated': !!amountArr[i][j],
-              'completed': isItemComplete(list.owner, itemId[0], amountArr[i][j])
+              'completed': isItemComplete([...addedTrays.values()][i].id, itemId[0], amountArr[i][j])
             }"
-              @click="addThisItemToTray(itemId[0], amountArr[i][j], list.owner)"
+              @click="addThisItemToTray(itemId[0], amountArr[i][j], [...addedTrays.values()][i].id)"
           >
             <div class="relative-position">
               <div class="absolute-center">
@@ -194,9 +212,11 @@ onMounted(() => {
       </div>
 
       <!-- Sum column -->
-      <div class="user-column" style="position: sticky">
-        <div class="user-header">
-          sum
+      <div class="user-column" style="position: sticky; right:0; top:0;">
+        <div class="user-header sum-header column justify-end">
+          <div>
+            sum
+          </div>
         </div>
         <div class="column">
           <div v-for="[_, amount] of itemsMap" :key="amount" class="amount-cell sum-cell">
@@ -216,6 +236,8 @@ onMounted(() => {
       :initial-item-id="initialItemId"
       :initial-search-term="searchTerm"
       :initial-item-amount="initialItemAmount"
+      :tray-id="selectedTrayId"
+      :item-alias="itemAlias"
       @item-placed="handleItemPlaced"
   />
 </template>
@@ -252,6 +274,12 @@ onMounted(() => {
         height: 2rem;
         width: 2rem;
         background-color: orange;
+      }
+
+      &.sum-header {
+        font-size: 1.8rem;
+        text-align: center;
+
       }
     }
 

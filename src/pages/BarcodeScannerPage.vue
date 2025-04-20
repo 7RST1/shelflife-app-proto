@@ -64,11 +64,13 @@ const startScan = async () => {
     if (currentPlatform === 'android' || currentPlatform === 'ios') {
       updateStatus(ScannerStatus.ScanningMobile);
 
+/*
       // Check for camera permissions first
       const permissionStatus = await checkPermissions();
       if (!permissionStatus.granted) {
         await requestPermissions();
       }
+*/
 
       // Using the Tauri barcode scanner plugin
       const result = await scan({
@@ -78,6 +80,7 @@ const startScan = async () => {
 
       // Handle the scan result
       if (result) {
+        console.log('Scan success on mobile:', result.content);
         handleScanSuccess(result.content);
       }
     } else {
@@ -97,10 +100,15 @@ const startScan = async () => {
 };
 
 const handleScanSuccess = (result: string) => {
-  // Return to the previous page with the scan result
-  router.push({
-    path: returnRoute.value,
+  console.log('Redirecting with scan result:', result);
+  // We need to decode the returnRoute in case it contains query parameters
+  const decodedReturnRoute = decodeURIComponent(returnRoute.value);
+
+  // Use router.replace instead of push to avoid adding to history stack
+  router.replace({
+    path: decodedReturnRoute.split('?')[0], // Get the path without query params
     query: {
+      ...route.query, // Keep existing query params if any
       scanResult: result,
       scanSuccess: 'true'
     }
@@ -109,6 +117,7 @@ const handleScanSuccess = (result: string) => {
 
 const submitManualInput = () => {
   if (manualInput.value.trim()) {
+    console.log('Manual input submitted:', manualInput.value);
     handleScanSuccess(manualInput.value);
     manualInput.value = '';
     showManualInputDialog.value = false;
@@ -125,12 +134,12 @@ onMounted(() => {
   // Small delay to ensure the page has fully loaded
   setTimeout(() => {
     startScan();
-  }, 500);
+  }, 50);
 });
 </script>
 
 <template>
-  <q-page class="flex flex-center column">
+  <div class="flex flex-center column">
     <div class="scanner-container q-pa-md">
       <h4 class="text-center q-mb-md">{{ scanSubject }} Scanner</h4>
 
@@ -145,13 +154,13 @@ onMounted(() => {
         <q-btn
             v-if="scannerStatus === ScannerStatus.Ready"
             color="primary"
-            icon="qr_code_scanner"
+            icon="sym_r_qr_code_scanner"
             label="Start Scanning"
             @click="startScan"
         />
         <q-btn
             color="negative"
-            icon="arrow_back"
+            icon="sym_r_arrow_back"
             label="Go Back"
             @click="goBack"
             class="q-ml-md"
@@ -180,7 +189,7 @@ onMounted(() => {
         </q-card>
       </q-dialog>
     </div>
-  </q-page>
+  </div>
 </template>
 
 <style scoped>

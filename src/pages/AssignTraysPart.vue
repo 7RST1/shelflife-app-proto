@@ -1,22 +1,27 @@
+<!-- TrayAssignmentPage.vue -->
 <script setup lang="ts">
-
-import {computed, onMounted, ref} from "vue";
+import {computed, onMounted, Ref, ref, watch} from "vue";
 import {User, usersT as users} from "@/models/User.ts";
 import ElderSelector from "@/components/ElderSelector.vue";
 import {Tray, TrayFactory, TraySize} from "@/models/Tray.ts";
-import BarcodeScanner from "@/components/BarcodeScanner.vue";
-import {useShoppingStore} from "@/stores/ShoppingStore.ts";
+import {TrayAssignment, useShoppingStore} from "@/stores/ShoppingStore.ts";
 import {storeToRefs} from "pinia";
+import ScannerIntegration from "@/components/ScannerIntegration.vue";
+import {useRoute} from "vue-router";
+import {Notify} from "quasar";
 
-// Tray interface
+// Get route for detecting scanner results
+const route = useRoute();
 
-// Available trays
-
-const scanner = ref<InstanceType<typeof BarcodeScanner> | null>(null);
+// Scanner integration reference
+const scanner = ref<InstanceType<typeof ScannerIntegration> | null>(null);
 
 // Current tray assignments
 const shoppingStore = useShoppingStore();
-const { trayAssignments, addedTrays } = storeToRefs(shoppingStore);
+const { trayAssignments, addedTrays } = storeToRefs(shoppingStore) as {
+  trayAssignments: Ref<TrayAssignment[]>;
+  addedTrays: Ref<Map<string,Tray>>; // assuming Tray is an interface you've defined
+};
 
 // UI state
 const selectedTrayId = ref<string | null>(null);
@@ -64,42 +69,7 @@ const openUserPicker = (trayId: string) => {
   showUserPicker.value = true;
 };
 
-const assignUser = () => {
-  // In a real implementation, you would get the selected user from your user picker
-  // This is just a placeholder function
-  console.log(`Assigning user to tray ${selectedTrayId.value}`);
-
-  // For demonstration, let's assign a random user
-  if (selectedTrayId.value) {
-    const randomUserId = users[Math.floor(Math.random() * users.length)].id;
-
-    // Check if tray already has an assignment
-    const existingAssignmentIndex = trayAssignments.value.findIndex(
-        a => a.trayId === selectedTrayId.value
-    );
-
-    if (existingAssignmentIndex >= 0) {
-      // Add user to existing assignment if not already there
-      trayAssignments.value[existingAssignmentIndex].userId = randomUserId;
-    } else {
-      // Create new assignment
-      trayAssignments.value.push({
-        trayId: selectedTrayId.value,
-        userId: randomUserId,
-      });
-    }
-  }
-};
-
 const removeUserFromTray = (trayId: string) => {
-  const assignmentIndex = trayAssignments.value.findIndex(a => a.trayId === trayId);
-  if (assignmentIndex >= 0) {
-    trayAssignments.value[assignmentIndex].userId =
-        null;
-  }
-};
-
-const clearTray = (trayId: string) => {
   const assignmentIndex = trayAssignments.value.findIndex(a => a.trayId === trayId);
   if (assignmentIndex >= 0) {
     trayAssignments.value[assignmentIndex].userId = null;
@@ -113,12 +83,6 @@ const resetAllAssignments = () => {
   }));
 };
 
-const saveAssignments = () => {
-  // In a real implementation, you would save the assignments to your backend
-  console.log('Saving tray assignments:', trayAssignments.value);
-  // You could show a success notification here
-};
-
 enum FlowStatus {
   BeforeScan,
   ItemScanMobile,
@@ -126,39 +90,53 @@ enum FlowStatus {
   ItemScanDone
 }
 
-
 const flowStatus = ref<FlowStatus>(FlowStatus.BeforeScan);
+
 const scanNewTray = async () => {
-  //open scanner
-  //get tray id
-  //import tray with tray id
   if (scanner.value) {
+    console.log("Starting tray scan");
     scanner.value.startScan();
   }
-
-
 }
 
 const handleScanStart = () => {
-
+  console.log("Scan started");
+  flowStatus.value = FlowStatus.ItemScanMobile;
 };
 
 const handleScanSuccess = async (barcodeContent: string) => {
-  addedTrays.value.push(TrayFactory.importTray(barcodeContent, TraySize.Norm5x5));
+  console.log("Scan success in TrayAssignment:", barcodeContent);
+  flowStatus.value = FlowStatus.ItemScanDone;
+
+  // Process the scan result
+  try {
+    // Add the scanned tray to the store
+    if (addedTrays.value.has(barcodeContent)) return;
+    const newTray = TrayFactory.importTray(barcodeContent, TraySize.Norm5x5);
+    addedTrays.value.set(barcodeContent, newTray);
+    console.log("Added tray", addedTrays.value.size);
+
+  } catch (error) {
+    console.error("Error importing tray:", error);
+  }
 };
 
 const handleScanError = (error: string) => {
+  console.error("Scan error:", error);
+  flowStatus.value = FlowStatus.BeforeScan;
 
 };
 
 const handleStatusChange = (status: number) => {
-
+  console.log("Scan status changed:", status);
+  if (status === 0) { // ScannerStatus.Ready
+    flowStatus.value = FlowStatus.BeforeScan;
+  }
 };
 
-onMounted(()=> {
-  shoppingStore.clear();
-})
-
+onMounted(() => {
+  //shoppingStore.clear();
+});
 </script>
 
 <template>
@@ -189,7 +167,7 @@ onMounted(()=> {
     <!-- Trays grid -->
     <div class="row q-col-gutter-md">
       <div
-          v-for="(tray, i) in addedTrays"
+          v-for="([id, tray], i) in addedTrays"
           :key="tray.id"
           class="col-12 col-sm-6 col-md-4 col-lg-3"
       >
@@ -293,11 +271,12 @@ onMounted(()=> {
     </q-card>
   </q-dialog>
 
-  <BarcodeScanner
+  <!-- Scanner Integration component -->
+  <ScannerIntegration
       ref="scanner"
-      scanning-prompt="Camera is active, scanning..."
-      manual-input-prompt="Enter tray id manually"
-      scan-subject="ID"
+      scanSubject="Tray"
+      manual-input-prompt="Enter tray ID manually"
+      scanningPrompt="Camera is active, scanning..."
       @scan-start="handleScanStart"
       @scan-success="handleScanSuccess"
       @scan-error="handleScanError"
@@ -306,7 +285,6 @@ onMounted(()=> {
 </template>
 
 <style scoped lang="scss">
-
 .q-card {
   border-radius: 1rem;
 
@@ -320,5 +298,4 @@ onMounted(()=> {
     background-color: orange;
   }
 }
-
 </style>

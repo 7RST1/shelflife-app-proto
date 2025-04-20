@@ -9,37 +9,51 @@ import { TraySlot, SlotStatus, SlotType } from "@/models/TraySlot.ts";
 import { installedTrays, Tray, TraySize } from "@/models/Tray.ts";
 import {useShoppingStore} from "@/stores/ShoppingStore.ts";
 import {storeToRefs} from "pinia";
+import ScannerIntegration from "@/components/ScannerIntegration.vue";
+import {useScanningStore} from "@/stores/scannerStore.ts";
 
-const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false
-  },
-  initialItemId: {
-    type: String,
-    default: null
-  },
-  initialSearchTerm: {
-    type: String,
-    default: null
-  },
-  initialItemAmount: {
-    type: Number,
-    default: 1
-  }
-});
 
-const emit = defineEmits(['update:modelValue', 'item-placed']);
+// Default values with withDefaults
+const props = withDefaults(defineProps<{
+  trayId: string;
+  itemAlias?: string; // only filled if item id is not provided
+  modelValue?: boolean;
+  initialItemId?: string | null;
+  initialSearchTerm?: string | null;
+  initialItemAmount?: number;
+}>(), {
+  modelValue: false,
+  initialItemId: null,
+  initialSearchTerm: null,
+  initialItemAmount: 1
+})
+
+//const emit = defineEmits(['update:modelValue', 'item-placed']);
+const emit = defineEmits<{
+  'update:modelValue': [shown: boolean]
+  'item-placed': [value: {
+    item: Item | null,
+    alias: string | null,
+    quantity: number,
+    placements: {trayId: string, slotIndex: number, item: StoredItem}[]
+  }]
+}>();
+
+const scannerStore = useScanningStore();
 
 // Dialogs states
 const dialogStep = ref(1); // 1: Item Selection, 2: Tray Slot Selection
 const selectedItem = ref<Item | null>(null);
 const selectedItemQuantity = ref(1);
-const selectedSlots = ref<{trayIndex: number, slotIndex: number}[]>([]);
+const selectedSlots = ref<{trayID: string, slotIndex: number}[]>([]);
+const selectedExpiry = ref("");
+const showExpirySelector = ref(false);
+const manualDateSelection = ref(false);
 
 // Scanning states
 const scanner = ref<InstanceType<typeof BarcodeScanner> | null>(null);
-const isScanning = ref(false);
+const isScanningOld = ref(false);
+const { isScanning } = storeToRefs(scannerStore);
 const lastScan = ref('');
 
 // Searching states
@@ -53,8 +67,7 @@ const productError = ref('');
 const shoppingStore = useShoppingStore();
 const { trayAssignments, addedTrays } = storeToRefs(shoppingStore);
 
-const selectedTrayIndex = ref(0);
-const selectedTray = computed(() => addedTrays.value[selectedTrayIndex.value] || null);
+const selectedTray = computed(() => addedTrays.value.get(props.trayId) || null);
 
 // Search results
 const filteredItems = computed(() => {
@@ -93,13 +106,13 @@ const startScanning = () => {
 
 // Scan event handlers
 const handleScanStart = () => {
-  isScanning.value = true;
+  isScanningOld.value = true;
 };
 
 const handleScanSuccess = async (barcodeContent: string) => {
   lastScan.value = barcodeContent;
   await fetchProductInfo(barcodeContent);
-  isScanning.value = false;
+  isScanningOld.value = false;
 };
 
 const handleScanError = (error: string) => {
@@ -107,11 +120,11 @@ const handleScanError = (error: string) => {
     type: 'negative',
     message: `Scanner error: ${error}`
   });
-  isScanning.value = false;
+  isScanningOld.value = false;
 };
 
 const handleStatusChange = (status: number) => {
-  isScanning.value = status === 1 || status === 2; // ScanningMobile or ScanningBrowser
+  isScanningOld.value = status === 1 || status === 2; // ScanningMobile or ScanningBrowser
 };
 
 // Fetch product information from OpenFoodFacts API
@@ -142,7 +155,7 @@ const fetchProductInfo = async (barcode: string) => {
       );
       console.log(data)
       selectedItem.value = newItem;
-      dialogStep.value = 2; // Move to tray selection
+      dialogStep.value = 2;
     }
   } catch (error) {
     console.error('Error fetching product info:', error);
@@ -172,14 +185,14 @@ const selectItem = (item: Item) => {
 };
 
 // Handle tray slot selection
-const toggleSlotSelection = (trayIndex: number, slotIndex: number) => {
-  const slotInfo = { trayIndex, slotIndex };
+const toggleSlotSelection = (trayID: string, slotIndex: number) => {
+  const slotInfo = { trayID, slotIndex, expiry: "" };
   const existingIndex = selectedSlots.value.findIndex(
-      slot => slot.trayIndex === trayIndex && slot.slotIndex === slotIndex
+      slot => slot.trayID === trayID && slot.slotIndex === slotIndex
   );
 
   // Check if the slot is available
-  const tray = addedTrays.value[trayIndex];
+  const tray = addedTrays.value.get(trayID);
   const slot = tray.slots[slotIndex];
 
   if (slot.holding) {
@@ -197,6 +210,8 @@ const toggleSlotSelection = (trayIndex: number, slotIndex: number) => {
     // Select the slot if we haven't reached the quantity
     if (selectedSlots.value.length < selectedItemQuantity.value) {
       selectedSlots.value.push(slotInfo);
+      showExpirySelector.value = true;
+      manualDateSelection.value = false;
     } else {
       Notify.create({
         type: 'warning',
@@ -207,15 +222,15 @@ const toggleSlotSelection = (trayIndex: number, slotIndex: number) => {
 };
 
 // Check if a slot is selected
-const isSlotSelected = (trayIndex: number, slotIndex: number) => {
+const isSlotSelected = (trayID: string, slotIndex: number) => {
   return selectedSlots.value.some(
-      slot => slot.trayIndex === trayIndex && slot.slotIndex === slotIndex
+      slot => slot.trayID === trayID && slot.slotIndex === slotIndex
   );
 };
 
 // Get the styling for a slot based on its status and selection
-const getSlotClass = (trayIndex: number, slotIndex: number, status: SlotStatus) => {
-  const isSelected = isSlotSelected(trayIndex, slotIndex);
+const getSlotClass = (trayID: string, slotIndex: number, status: SlotStatus) => {
+  const isSelected = isSlotSelected(trayID, slotIndex);
 
   let classes = [];
 
@@ -239,13 +254,6 @@ const getSlotClass = (trayIndex: number, slotIndex: number, status: SlotStatus) 
   }
 
   return classes.join(' ');
-};
-
-// Navigate between trays
-const selectTray = (index: number) => {
-  if (index >= 0 && index < addedTrays.value.length) {
-    selectedTrayIndex.value = index;
-  }
 };
 
 // Confirm selection and place items
@@ -278,8 +286,8 @@ const placeItems = () => {
 
   const placements: {trayId: string, slotIndex: number, item: StoredItem}[] = [];
 
-  selectedSlots.value.forEach(({trayIndex, slotIndex}) => {
-    const tray = addedTrays.value[trayIndex];
+  selectedSlots.value.forEach(({trayID, slotIndex}) => {
+    const tray = addedTrays.value.get(trayID);
 
     // Create a stored item based on the selected item
     const storedItem = new StoredItem(
@@ -289,7 +297,8 @@ const placeItems = () => {
         {
           source: ExpirySource.Estimated,
           date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-        }
+        },
+        props.itemAlias
     );
 
     // Update the tray slot
@@ -306,6 +315,7 @@ const placeItems = () => {
   // Emit event with placement data
   emit('item-placed', {
     item: selectedItem.value,
+    alias: props.itemAlias,
     quantity: selectedItemQuantity.value,
     placements
   });
@@ -346,6 +356,14 @@ const dialogVisible = computed({
 
 watch(dialogVisible, (newValue:boolean) => {
   console.log(newValue)
+  console.log("ITEMPL id", props.initialItemId)
+
+  //Reset variables
+  productError.value = '';
+  productData.value = null;
+  dialogStep.value = 1;
+
+
   if (props.initialItemId) {
     initializeWithItem(props.initialItemId);
   }
@@ -361,10 +379,11 @@ watch(dialogVisible, (newValue:boolean) => {
       v-model="dialogVisible"
       persistent
       maximized
+      backdrop-filter=""
       transition-show="slide-up"
       transition-hide="slide-down"
   >
-    <q-card class="column">
+    <q-card class="column no-wrap" :class="{maskscanner: isScanning}">
       <!-- Dialog Header -->
       <q-card-section class="bg-primary text-white">
         <div class="row items-center no-wrap">
@@ -377,107 +396,109 @@ watch(dialogVisible, (newValue:boolean) => {
       </q-card-section>
 
       <!-- Step 1: Item Selection -->
-      <q-card-section v-if="dialogStep === 1" class="flex-grow-1 scroll">
+      <q-card-section v-if="dialogStep === 1" style="flex-grow: 1" class="scroll">
         <!-- Search Bar -->
-        <q-input
-            v-model="searchTerm"
-            filled
-            label="Search for an item"
-            clearable
-            class="q-mb-md"
-        >
-          <template v-slot:append>
-            <q-icon name="sym_r_search" />
-          </template>
-        </q-input>
-
-        <!-- Barcode Scanner Button -->
-        <div class="row q-mb-md">
-          <q-btn
-              color="secondary"
-              icon="sym_r_qr_code_scanner"
-              label="Scan Barcode"
-              class="full-width"
-              :loading="isScanning"
-              @click="startScanning"
-          />
-        </div>
-
-        <!-- Last Scan Result -->
-        <div v-if="lastScan" class="q-mb-md">
-          <q-banner class="bg-blue-1">
-            <template v-slot:avatar>
-              <q-icon name="sym_r_qr_code" color="primary" />
-            </template>
-            Last scanned: {{ lastScan }}
-          </q-banner>
-        </div>
-
-        <!-- API Error Message -->
-        <div v-if="productError" class="q-mb-md">
-          <q-banner class="bg-red-1">
-            <template v-slot:avatar>
-              <q-icon name="sym_r_error" color="negative" />
-            </template>
-            {{ productError }}
-          </q-banner>
-        </div>
-
-        <!-- Loading Indicator -->
-        <div v-if="isLoadingProduct" class="row justify-center q-py-md">
-          <q-spinner color="primary" size="3em" />
-          <span class="q-ml-sm">Loading product details...</span>
-        </div>
-
-        <!-- OpenFoodFacts Product Result -->
-        <div v-if="productData?.product && !selectedItem" class="q-mb-md">
-          <q-card class="cursor-pointer" @click="selectItem(new Item(productData.code || uid(), productData.product.product_name))">
-            <q-item>
-              <q-item-section v-if="productData.product.image_url" avatar>
-                <q-img
-                    :src="productData.product.image_url"
-                    style="height: 50px; max-width: 50px;"
-                    fit="contain"
-                />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="text-weight-bold">{{ productData.product.product_name }}</q-item-label>
-                <q-item-label caption>{{ productData.product.brands || 'Unknown brand' }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-btn flat round icon="sym_r_add" color="primary" />
-              </q-item-section>
-            </q-item>
-          </q-card>
-        </div>
-
-        <!-- Item List -->
-        <div class="q-mt-md">
-          <q-list bordered separator>
-            <q-item
-                v-for="item in filteredItems"
-                :key="item.id"
-                clickable
-                v-ripple
-                @click="selectItem(item)"
+        <div style="font-size: 1.5rem">Find the item to represent "{{itemAlias.toLowerCase()}}"</div>
+            <q-input
+                v-model="searchTerm"
+                filled
+                label="Search for an item"
+                clearable
+                class="q-mb-md"
             >
-              <q-item-section avatar>
-                <q-icon :name="item.icon" color="primary" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ item.name }}</q-item-label>
-                <q-item-label caption>ID: {{ item.id }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-btn flat round icon="sym_r_add" color="primary" />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </div>
+              <template v-slot:append>
+                <q-icon name="sym_r_search"/>
+              </template>
+            </q-input>
+
+            <!-- Barcode Scanner Button -->
+            <div class="row q-mb-md">
+              <q-btn
+                  color="secondary"
+                  icon="sym_r_qr_code_scanner"
+                  label="Scan Barcode"
+                  class="full-width"
+                  :loading="isScanningOld"
+                  @click="startScanning"
+              />
+            </div>
+
+            <!-- Last Scan Result -->
+            <div v-if="lastScan" class="q-mb-md">
+              <q-banner class="bg-blue-1">
+                <template v-slot:avatar>
+                  <q-icon name="sym_r_qr_code" color="primary"/>
+                </template>
+                Last scanned: {{ lastScan }}
+              </q-banner>
+            </div>
+
+            <!-- API Error Message -->
+            <div v-if="productError" class="q-mb-md">
+              <q-banner class="bg-red-1">
+                <template v-slot:avatar>
+                  <q-icon name="sym_r_error" color="negative"/>
+                </template>
+                {{ productError }}
+              </q-banner>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div v-if="isLoadingProduct" class="row justify-center q-py-md">
+              <q-spinner color="primary" size="3em"/>
+              <span class="q-ml-sm">Loading product details...</span>
+            </div>
+
+            <!-- OpenFoodFacts Product Result -->
+            <div v-if="productData?.product && !selectedItem" class="q-mb-md">
+              <q-card class="cursor-pointer scroll-y"
+                      @click="selectItem(new Item(productData.code || uid(), productData.product.product_name))">
+                <q-item>
+                  <q-item-section v-if="productData.product.image_url" avatar>
+                    <q-img
+                        :src="productData.product.image_url"
+                        style="height: 50px; max-width: 50px;"
+                        fit="contain"
+                    />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-weight-bold">{{ productData.product.product_name }}</q-item-label>
+                    <q-item-label caption>{{ productData.product.brands || 'Unknown brand' }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn flat round icon="sym_r_add" color="primary"/>
+                  </q-item-section>
+                </q-item>
+              </q-card>
+            </div>
+
+            <!-- Item List -->
+            <div v-if="!isScanning" class="q-mt-md">
+              <q-list bordered separator>
+                <q-item
+                    v-for="item in filteredItems"
+                    :key="item.id"
+                    clickable
+                    v-ripple
+                    @click="selectItem(item)"
+                >
+                  <q-item-section avatar>
+                    <q-icon :name="item.icon" color="primary"/>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ item.name }}</q-item-label>
+                    <q-item-label caption>ID: {{ item.id }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn flat round icon="sym_r_add" color="primary"/>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </div>
       </q-card-section>
 
       <!-- Step 2: Tray Slot Selection -->
-      <q-card-section v-if="dialogStep === 2" class="flex-grow-1 column">
+      <q-card-section v-if="dialogStep === 2" style="flex-grow: 1" class="column">
         <!-- Selected Item Display -->
         <div class="row items-center q-mb-md">
           <q-avatar size="50px" class="q-mr-md">
@@ -485,6 +506,7 @@ watch(dialogVisible, (newValue:boolean) => {
           </q-avatar>
           <div class="column">
             <div class="text-h6">{{ selectedItem?.name || 'Selected Item' }}</div>
+            <div v-if="itemAlias" class="text-h6">Chosen as: {{ itemAlias }}</div>
             <div class="text-caption">ID: {{ selectedItem?.id || 'Unknown' }}</div>
           </div>
         </div>
@@ -497,21 +519,6 @@ watch(dialogVisible, (newValue:boolean) => {
           <q-btn flat round icon="sym_r_add" size="sm" @click="selectedItemQuantity++" />
           <div class="q-ml-sm text-caption">(Select {{ selectedItemQuantity }} slots)</div>
         </div>
-
-        <!-- Tray Tabs -->
-        <q-tabs
-            v-model="selectedTrayIndex"
-            class="bg-primary text-white"
-            indicator-color="white"
-            align="justify"
-        >
-          <q-tab
-              v-for="(tray, index) in addedTrays"
-              :key="tray.id"
-              :name="index"
-              :label="`Tray ${index + 1}`"
-          />
-        </q-tabs>
 
         <!-- Tray Slots Grid -->
         <div class="tray-grid q-mt-md flex-grow-1 scroll" v-if="selectedTray">
@@ -526,12 +533,12 @@ watch(dialogVisible, (newValue:boolean) => {
                   :key="colIndex"
                   class="tray-slot"
                   :class="getSlotClass(
-                  selectedTrayIndex,
+                  selectedTray.id,
                   rowIndex * Math.sqrt(selectedTray.capacity) + colIndex,
                   selectedTray.slots[rowIndex * Math.sqrt(selectedTray.capacity) + colIndex]?.status
                 )"
                   @click="toggleSlotSelection(
-                  selectedTrayIndex,
+                  selectedTray.id,
                   rowIndex * Math.sqrt(selectedTray.capacity) + colIndex
                 )"
               >
@@ -544,7 +551,7 @@ watch(dialogVisible, (newValue:boolean) => {
                       {{ selectedTray.slots[rowIndex * Math.sqrt(selectedTray.capacity) + colIndex]?.holding?.name }}
                     </div>
                   </div>
-                  <div v-else-if="isSlotSelected(selectedTrayIndex, rowIndex * Math.sqrt(selectedTray.capacity) + colIndex)">
+                  <div v-else-if="isSlotSelected(selectedTray.id, rowIndex * Math.sqrt(selectedTray.capacity) + colIndex)">
                     <q-icon :name="selectedItem?.icon || 'sym_r_grocery'" size="1.5rem" color="primary" />
                     <div class="text-caption">
                       {{ selectedItem?.name }}
@@ -582,6 +589,21 @@ watch(dialogVisible, (newValue:boolean) => {
             @click="confirmPlacement"
         />
       </q-card-actions>
+    </q-card>
+  </q-dialog>
+
+  <q-dialog v-model="showExpirySelector">
+    <q-card>
+      <q-card-section class="text-h6 q-mb-none q-pb-none" style="font-size: 1rem">
+        When does the item expire?
+      </q-card-section>
+      <q-card-section class="column">
+        <q-img src="ocr-placeholder.svg" width="16rem" height="16rem"/>
+      </q-card-section>
+      <q-card-section>
+        Scan above or select date;
+      </q-card-section>
+      <q-date v-model="selectedExpiry" />
     </q-card>
   </q-dialog>
 
@@ -653,5 +675,17 @@ watch(dialogVisible, (newValue:boolean) => {
       transform: scale(1.05);
     }
   }
+}
+
+.maskscanner {
+  mask-image: url('scan-clip-a.svg');
+  mask-repeat: no-repeat;
+  mask-size: 180rem;
+  mask-position: center;
+
+}
+
+.step-1-sections {
+  transition: flex 300ms;
 }
 </style>

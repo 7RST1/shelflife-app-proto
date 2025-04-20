@@ -14,11 +14,14 @@ export class StoredItem extends Item {
   weight: number;
 
   expiry: Expiry | null;
+  // used if the original shopping list had this item as generic
+  actsAs: string | null;
 
-  constructor(id: string, name: string, weight: number, expiry?: Expiry) {
+  constructor(id: string, name: string, weight: number, expiry?: Expiry, actsAs?: string) {
     super(id, name);
     this.weight = weight;
     this.expiry = expiry || null;
+    this.actsAs = actsAs || null;
   }
 
   get icon(): string {

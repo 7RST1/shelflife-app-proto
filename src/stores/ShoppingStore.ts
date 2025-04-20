@@ -3,18 +3,18 @@ import {ref} from "vue";
 import {Tray} from "@/models/Tray.ts";
 
 // Assignment interface
-interface TrayAssignment {
+export interface TrayAssignment {
     trayId: string;
     userId: string | null;
 }
 
 export const useShoppingStore = defineStore('shopping', () => {
     const trayAssignments = ref<TrayAssignment[]>([]);
-    const addedTrays = ref<Tray[]>([]);
+    const addedTrays = ref(new Map<string,Tray>());
 
     const clear = () => {
         trayAssignments.value = [];
-        addedTrays.value = [];
+        addedTrays.value.clear();
     };
 
     return { trayAssignments, addedTrays, clear }
